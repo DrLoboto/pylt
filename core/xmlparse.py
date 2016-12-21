@@ -3,11 +3,11 @@
 #    License: GNU GPLv3
 #
 #    This file is part of Pylot.
-#    
+#
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.  See the GNU General Public License 
+#    (at your option) any later version.  See the GNU General Public License
 #    for more details.
 #
 
@@ -42,6 +42,7 @@ def load_xml_cases_dom(dom):
     # load cases from an already-parsed XML DOM
     cases = []
     param_map = {}
+    headers = []
     for child in dom.getiterator():
         if child.tag != dom.getroot().tag and child.tag == 'param':
             name = child.attrib.get('name')
@@ -62,7 +63,7 @@ def load_xml_cases_dom(dom):
             for element in child:
                 if element.tag.lower() == 'url':
                     req.url = element.text
-                if element.tag.lower() == 'method': 
+                if element.tag.lower() == 'method':
                     req.method = element.text
                 if element.tag.lower() == 'body':
                     file_payload = element.attrib.get('file')
@@ -70,27 +71,25 @@ def load_xml_cases_dom(dom):
                         req.body = open(file_payload, 'rb').read()
                     else:
                         req.body = element.text
-                if element.tag.lower() == 'verify': 
+                if element.tag.lower() == 'verify':
                     req.verify = element.text
-                if element.tag.lower() == 'verify_negative': 
+                if element.tag.lower() == 'verify_negative':
                     req.verify_negative = element.text
-                if element.tag.lower() == 'timer_group': 
+                if element.tag.lower() == 'timer_group':
                     req.timer_group = element.text
                 if element.tag.lower() == 'add_header':
-                    # this protects against headers that contain colons
-                    splat = element.text.split(':')
-                    x = splat[0].strip()
-                    del splat[0]
-                    req.add_header(x, ''.join(splat).strip())
-            req = resolve_parameters(req, param_map)  # substitute vars
+                    headers.append(element.text)
+            req = resolve_parameters(req, headers, param_map)  # substitute vars
             cases.append(req)
     return cases
 
 
-def resolve_parameters(req, param_map):
+def resolve_parameters(req, headers, param_map):
     # substitute variables based on parameter mapping
     req.url = Template(req.url).substitute(param_map)
     req.body = Template(req.body).substitute(param_map)
-    for header in req.headers:
-        req.headers[header] = Template(req.headers[header]).substitute(param_map)
+    for header in headers:
+        splat = Template(header).substitute(param_map).split(':', 1)
+        header = splat.pop(0).strip()
+        req.add_header(header, ''.join(splat).strip())
     return req
